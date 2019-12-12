@@ -1,0 +1,105 @@
+---
+title: 'Reproducible Research: Peer Assessment 1'
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+
+
+## Loading and preprocessing the data
+``` {r, echo = TRUE}
+setwd("C:/Users/Pete/Desktop/coursera")
+# read data
+activity <- read.csv("activity.csv")
+
+# convert dates
+activity$date <- as.Date(activity$date, format = "%Y-%m-%d")
+
+library(dplyr)
+
+# create a variable for steps per day
+activity %>% 
+  group_by(date) %>% 
+  mutate(steps_day = sum(steps, na.rm = TRUE)) -> activity
+
+```
+
+## What is mean total number of steps taken per day?
+``` {r, echo = TRUE}
+hist(activity$steps_day, main = "Steps Per Day", xlab = "Steps")
+mean_day <- mean(activity$steps_day, na.rm = TRUE)
+median_day <- median(activity$steps_day, na.rm = TRUE)
+```
+The mean number of steps per day is `mean_day`, while the median is `median_day`.
+
+## What is the average daily activity pattern?
+``` {r, echo = TRUE}
+
+# group by time interval and day
+activity %>% 
+  group_by(interval) %>% 
+  mutate(avg_steps = mean(steps, na.rm = TRUE), interval2 = interval) -> activity
+
+#graph
+plot(activity$avg_steps ~ activity$interval, type = "l", xlab = "Interval", ylab = "Steps", 
+     main = "Steps at Daily Intervals")
+
+# find the interval with the most average steps
+activity %>% arrange(desc(avg_steps)) %>% 
+  head(1) -> max_interval
+```
+The interval with the most steps is `max_interval[1, 6`].
+
+## Imputing missing values
+``` {r, echo = TRUE}
+# calculate rows with missing data and display
+paste("There are", sum(is.na(activity$steps)), "rows with missing data.")
+
+# function to fill nas
+nafill <- function(activity) {
+  for (i in 1:nrow(activity)) {
+    activity[i, 1] <- ifelse(is.na(activity[i, 1]), activity[i, 5], activity[i, 1])
+  }
+  return(activity)
+}
+
+# fill in df with mean for the day where values are missing and 
+# save in a new dataset called activity 2
+activity2 <- nafill(activity)
+
+# create a histogram for steps per day
+activity2 %>% 
+  group_by(date) %>% 
+  mutate(steps_day2 = sum(steps, na.rm = TRUE)) -> activity2
+hist(activity2$steps_day2, main = "Steps Per Day", xlab = "Steps")
+
+# calculate new mean and median steps per day
+paste("The new average daily stepcount is", mean(activity2$steps_day2), ".")
+paste("The new median daily stepcount is", median(activity2$steps_day2), ".")
+```
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+``` {r, echo = TRUE}
+# create a weekday column
+dayweek <- function(date){
+        weekday <- weekdays(as.Date(date))
+        if(weekday %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")){
+                return("weekday")
+        } else if(weekday %in% c("Saturday", "Sunday")){
+                return("weekend")
+        } else {
+                stop("Not a valid date")
+        }
+}
+
+activity3 <- activity2
+activity3$weekday <- sapply(activity3$date, FUN = dayweek)
+
+# create plot
+aggdata <- aggregate(steps ~ interval + weekday, data=activity3, mean)
+library(lattice)
+with(aggdata,
+     xyplot(steps ~ interval | weekday, type="l", xlab = "Interval", ylab = "Number of steps", layout = c(1, 2)))
+```
